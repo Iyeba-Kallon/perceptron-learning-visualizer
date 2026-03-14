@@ -177,7 +177,7 @@ class NeuralNetSimulatorGUI:
         data_label.pack(fill=tk.X, padx=5, pady=(15, 10))
         
         self.dataset_var = ctk.StringVar(value="Linear")
-        datasets = ["Linear", "AND", "OR", "XOR", "Circles", "Moons", "Spiral", "Manual"]
+        datasets = ["Linear", "AND", "OR", "XOR", "Circles", "Moons", "Spiral", "Manual", "Custom (CSV/TXT)"]
         ctk.CTkOptionMenu(self.left_panel, variable=self.dataset_var, values=datasets).pack(fill=tk.X, pady=(0, 10))
         
         ctk.CTkButton(self.left_panel, text="Generate/Load Data", command=self.generate_data).pack(fill=tk.X, pady=10)
@@ -274,7 +274,38 @@ class NeuralNetSimulatorGUI:
              self.canvas_boundary.draw()
              return
 
-        if selection == "Linear":
+        if selection == "Custom (CSV/TXT)":
+             self.log_message("Opening file dialog for custom dataset...")
+             filepath = ctk.filedialog.askopenfilename(
+                 title="Select Dataset",
+                 filetypes=[("Text/CSV files", "*.csv *.txt"), ("All files", "*.*")]
+             )
+             if not filepath:
+                 self.log_message("File selection cancelled.")
+                 return
+             
+             try:
+                 # Load data assuming comma or space separated
+                 # Assume last column is 'y' and rest are 'X'
+                 data = np.loadtxt(filepath, delimiter=',' if filepath.endswith('.csv') else None)
+                 if data.ndim != 2 or data.shape[1] < 2:
+                     raise ValueError("Data must have at least 2 columns (Features and Labels)")
+                 
+                 self.X = data[:, :-1]
+                 self.y = data[:, -1]
+                 
+                 # Verify binary or integer labels for simplicity
+                 unique_classes = np.unique(self.y)
+                 if len(unique_classes) > 2:
+                     self.log_message("Warning: Dataset has more than 2 classes. Visualizer optimized for binary classification.")
+                     
+                 self.log_message(f"Successfully loaded {filepath}. Shape: {self.X.shape}")
+             except Exception as e:
+                 import traceback
+                 self.log_message(f"Error loading file: {e}")
+                 messagebox.showerror("Error Loading Data", f"Ensure file is numeric and comma/space separated.\n{e}")
+                 return
+        elif selection == "Linear":
             self.X, self.y = data_generator.generate_linear_data()
         elif selection == "Circles":
             self.X, self.y = data_generator.generate_circles_data()
