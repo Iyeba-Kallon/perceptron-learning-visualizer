@@ -254,10 +254,10 @@ class NeuralNetSimulatorGUI:
         self.log_text.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 10))
 
     def log_message(self, msg):
-        self.log_text.config(state='normal')
+        self.log_text.configure(state='normal')
         self.log_text.insert(tk.END, msg + "\n")
         self.log_text.see(tk.END)
-        self.log_text.config(state='disabled')
+        self.log_text.configure(state='disabled')
 
     def show_about(self):
         messagebox.showinfo("About", "Neural Network Learning Simulator v1.0")
@@ -367,8 +367,8 @@ class NeuralNetSimulatorGUI:
             return
             
         self.is_playing = True
-        self.btn_start.config(state=tk.DISABLED)
-        self.btn_stop.config(state=tk.NORMAL)
+        self.btn_start.configure(state=tk.DISABLED)
+        self.btn_stop.configure(state=tk.NORMAL)
         self.current_epoch = 0
         self.history = {'loss': [], 'accuracy': []}
         
@@ -377,8 +377,8 @@ class NeuralNetSimulatorGUI:
         
     def stop_training(self):
         self.is_playing = False
-        self.btn_start.config(state=tk.NORMAL)
-        self.btn_stop.config(state=tk.DISABLED)
+        self.btn_start.configure(state=tk.NORMAL)
+        self.btn_stop.configure(state=tk.DISABLED)
         self.log_message("Training stopped.")
 
     def reset_simulation(self):
@@ -393,9 +393,9 @@ class NeuralNetSimulatorGUI:
         self.canvas_network.draw()
         self.canvas_loss.draw()
         self.log_message("Simulation Reset.")
-        self.epoch_label.config(text="Epoch: 0")
-        self.loss_label.config(text="Loss: N/A")
-        self.acc_label.config(text="Accuracy: N/A")
+        self.epoch_label.configure(text="Epoch: 0")
+        self.loss_label.configure(text="Loss: N/A")
+        self.acc_label.configure(text="Accuracy: N/A")
         
         if self.X is not None and self.dataset_var.get() != "Manual":
              self.generate_data() # Re-plot data
@@ -451,9 +451,9 @@ class NeuralNetSimulatorGUI:
         self.history['accuracy'].append(acc)
         
         # Update UI
-        self.epoch_label.config(text=f"Epoch: {self.current_epoch}/{max_epochs}")
-        self.loss_label.config(text=f"Loss: {loss:.4f}")
-        self.acc_label.config(text=f"Accuracy: {acc*100:.1f}%")
+        self.epoch_label.configure(text=f"Epoch: {self.current_epoch}/{max_epochs}")
+        self.loss_label.configure(text=f"Loss: {loss:.4f}")
+        self.acc_label.configure(text=f"Accuracy: {acc*100:.1f}%")
         
         # Update Plots (every 5 epochs to speed up animation if needed, or every 1)
         # Using every epoch for smooth vis
