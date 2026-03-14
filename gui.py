@@ -169,7 +169,7 @@ class NeuralNetSimulatorGUI:
         
         ctk.CTkLabel(self.left_panel, text="Activation:").pack(anchor=tk.W)
         self.activation_var = ctk.StringVar(value="Sigmoid")
-        activations = ["Sigmoid", "Tanh", "ReLU", "Hardlim", "Hardlims", "LogSigmoid"]
+        activations = ["Sigmoid", "Tanh", "ReLU", "Hardlim", "Hardlims"]
         ctk.CTkOptionMenu(self.left_panel, variable=self.activation_var, values=activations).pack(fill=tk.X, pady=(0, 10))
 
         # -- Dataset --

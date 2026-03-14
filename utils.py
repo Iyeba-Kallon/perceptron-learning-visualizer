@@ -9,13 +9,7 @@ def sigmoid_prime(z):
     s = sigmoid(z)
     return s * (1 - s)
 
-def logsigmoid(z):
-    """Log-Sigmoid activation function."""
-    return np.log(sigmoid(z))
 
-def logsigmoid_prime(z):
-    """Derivative of Log-Sigmoid."""
-    return 1.0 - sigmoid(z)
 
 def hardlim(z):
     """Hard limit activation function (0 or 1)."""
