@@ -9,6 +9,24 @@ def sigmoid_prime(z):
     s = sigmoid(z)
     return s * (1 - s)
 
+
+
+def hardlim(z):
+    """Hard limit activation function (0 or 1)."""
+    return np.where(z >= 0, 1.0, 0.0)
+
+def hardlim_prime(z):
+    """Derivative of hardlim (0 everywhere except undefined at 0, usually taken as 0 for learning)."""
+    return np.zeros_like(z)
+
+def hardlims(z):
+    """Symmetric hard limit activation function (-1 or 1)."""
+    return np.where(z >= 0, 1.0, -1.0)
+
+def hardlims_prime(z):
+    """Derivative of symmetric hard limit."""
+    return np.zeros_like(z)
+
 def relu(z):
     """ReLU activation function."""
     return np.maximum(0, z)

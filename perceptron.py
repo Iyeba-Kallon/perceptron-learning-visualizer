@@ -14,7 +14,7 @@ class Perceptron:
         """Fit training data."""
         rgen = np.random.RandomState(self.random_state)
         self.w_ = rgen.normal(loc=0.0, scale=0.01, size=X.shape[1])
-        self.b_ = np.float_(0.)
+        self.b_ = np.float64(0.)
         self.errors_ = []
         self.history = []
 
@@ -54,7 +54,7 @@ class Perceptron:
         if self.w_ is None:
              rgen = np.random.RandomState(self.random_state)
              self.w_ = rgen.normal(loc=0.0, scale=0.01, size=x.shape[0])
-             self.b_ = np.float_(0.)
+             self.b_ = np.float64(0.)
         
         y_pred = self.predict_single(x)
         error = y - y_pred

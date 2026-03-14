@@ -15,7 +15,7 @@ class AdalineGD:
         """ Fit training data. """
         rgen = np.random.RandomState(self.random_state)
         self.w_ = rgen.normal(loc=0.0, scale=0.01, size=X.shape[1])
-        self.b_ = np.float_(0.)
+        self.b_ = np.float64(0.)
         self.cost_ = []
         self.history = []
 
@@ -57,7 +57,7 @@ class AdalineGD:
         if self.w_ is None:
              rgen = np.random.RandomState(self.random_state)
              self.w_ = rgen.normal(loc=0.0, scale=0.01, size=X.shape[1])
-             self.b_ = np.float_(0.)
+             self.b_ = np.float64(0.)
              
         net_input = self.net_input(X)
         output = self.activation(net_input)

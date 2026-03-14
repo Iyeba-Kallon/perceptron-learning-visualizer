@@ -1,5 +1,5 @@
 import numpy as np
-from utils import sigmoid, sigmoid_prime, tanh, tanh_prime, relu, relu_prime, softmax
+from utils import sigmoid, sigmoid_prime, tanh, tanh_prime, relu, relu_prime, softmax, hardlim, hardlim_prime, hardlims, hardlims_prime
 
 class MLP:
     """Multi-Layer Perceptron with Backpropagation."""
@@ -43,6 +43,10 @@ class MLP:
             return tanh(z)
         elif self.activation_name == 'relu':
             return relu(z)
+        elif self.activation_name == 'hardlim':
+            return hardlim(z)
+        elif self.activation_name == 'hardlims':
+            return hardlims(z)
         return z
 
     def _activation_prime(self, z):
@@ -52,6 +56,10 @@ class MLP:
             return tanh_prime(z)
         elif self.activation_name == 'relu':
             return relu_prime(z)
+        elif self.activation_name == 'hardlim':
+            return hardlim_prime(z)
+        elif self.activation_name == 'hardlims':
+            return hardlims_prime(z)
         return np.ones_like(z)
 
     def forward(self, X):
