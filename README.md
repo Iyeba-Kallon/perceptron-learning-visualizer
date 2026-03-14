@@ -1,35 +1,56 @@
 # Neural Network Learning Visualizer
 
-This application simulates and visualizes the training process of Perceptron, Adaline, and Multi-Layer Perceptron (MLP) networks.
+This application is an interactive, visually stunning desktop tool that simulates and visualizes the training process of foundational neural network algorithms. It is designed to demystify how models like the Perceptron, Adaline, and Multi-Layer Perceptrons (MLP) shift their decision boundaries step-by-step during the learning process.
 
-## Setup
+Recently overhauled with a modern dark-themed CustomTkinter UI and vibrant animations, this sandbox environment turns abstract calculus into an interactive experience.
 
-1.  Ensure you have Python installed.
-2.  Install the required dependencies:
-    ```bash
-    pip install -r requirements.txt
-    ```
+## Features
+
+- **Algorithms Built from Scratch**:
+  - **Perceptron**: The classic linear classifier. Watch it solve linearly separable problems and fail on non-linear ones like XOR.
+  - **Adaline (Adaptive Linear Neuron)**: Uses Mean Squared Error and Gradient Descent for a smoother, mathematically grounded approach to finding optimal weights.
+  - **Multi-Layer Perceptron (MLP)**: Solves non-linear problems using customizable hidden layers, backpropagation, and non-linear activation functions (`Sigmoid`, `Tanh`, `ReLU`).
+- **Interactive Visualizations (Real-Time)**:
+  - **Decision Boundary**: A dynamic contour map showing exactly how the model divides the 2D space epoch by epoch.
+  - **Network Architecture Graphic**: Dynamically draws the network graph. Synapses light up with vibrant glowing colors (cyan for positive weights, red for negative weights) and scale in thickness based on weight magnitude!
+  - **Metrics Plot**: A live tracker for Loss and Accuracy to monitor convergence and overfitting.
+- **Dynamic Datasets**:
+  - Built-in generators for Linear, Circles, Moons, Spirals, and classic Logic Gates (AND/OR/XOR).
+  - **Manual Entry Mode**: Literally click on the canvas to place custom data points and challenge the model to separate them! (Left-click for Class 0, Right-click for Class 1).
+
+## Installation & Setup
+
+1. **Prerequisites**: Ensure you have Python 3.8+ installed on your system.
+2. **Clone the repository**:
+   ```bash
+   git clone https://github.com/Iyeba-Kallon/neural-network-learning-visualizer.git
+   cd neural-network-learning-visualizer
+   ```
+3. **Install Dependencies**:
+   The application requires several libraries, including `customtkinter` for the modern UI, and `numpy`/`matplotlib` for the math and plotting. Install them via:
+   ```bash
+   pip install -r requirements.txt
+   ```
 
 ## Running the Application
 
-Run the main script:
+Launch the visualizer by running the main Python script:
 ```bash
 python main.py
 ```
 
-## Features
+## How to Use the Visualizer
 
--   **Algorithms**: Perceptron, Adaline, MLP (Backpropagation).
--   **Visualizations**:
-    -   Real-time Decision Boundary updates.
-    -   Network Architecture Diagram (updates weights visualization).
-    -   Loss/Accuracy Metrics plot.
--   **Datasets**: Linear, Circles, Moons, Spirals, Logic Gates (AND/OR/XOR), and **Manual Entry** (Click to add points).
--   **Controls**: Adjustable learning rate, epochs, hidden layers, and activation functions.
+1. **Select an Algorithm**: Choose between Perceptron, Adaline, or MLP from the left panel.
+2. **Configure Hyperparameters**: Adjust the Learning Rate (η) and the maximum number of Epochs. If using an MLP, specify the hidden layers (e.g., `4,4` for two layers with 4 neurons each) and choose an activation function.
+3. **Generate Data**: Select a dataset type from the dropdown. 
+   - *Tip*: Select **Manual** mode to plot your own data. Left-click anywhere on the "Decision Boundary" plot to place a Class 0 (Red) point, and Right-click to place a Class 1 (Blue) point.
+4. **Train**: Click **Start Training**. Watch the three right-hand panes animate in real-time as the model attempts to classify your data!
+5. **Reset & Experiment**: Use the **Stop** and **Reset** buttons to halt training or start over with different configurations. Try training a standard Perceptron on XOR data to see it fail, then switch to MLP with at least one hidden layer to see it succeed!
 
-## Usage Tips
+## Future Enhancements / To-Do
 
--   **Manual Data**: Select "Manual" from the Dataset dropdown. Left-click on the plot to add Class 0 (Red) points, Right-click to add Class 1 (Blue) points.
--   **MLP Config**: Enter hidden layers as comma-separated values, e.g., `4,4` for two hidden layers with 4 neurons each.
--   **Reset**: Use the Reset button to clear the current simulation and start fresh.
--   **XOR Problem**: Try training a standard Perceptron on XOR data to see it fail, then switch to MLP with at least one hidden layer (e.g., `3`) to see it succeed!
+- [ ] Connect the output of the Network Drawer activation visualizer to show real-time neuron firing intensity.
+- [ ] Add more complex optimizers for MLP (e.g., Adam, RMSprop).
+- [ ] Implement multi-class classification (currently binary classification).
+- [ ] Export trained weights/models capability.
