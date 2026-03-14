@@ -1,0 +1,11 @@
+Defaulting to user installation because normal site-packages is not writeable
+Collecting customtkinter
+  Downloading customtkinter-5.2.2-py3-none-any.whl.metadata (677 bytes)
+Collecting darkdetect (from customtkinter)
+  Downloading darkdetect-0.8.0-py3-none-any.whl.metadata (3.6 kB)
+Requirement already satisfied: packaging in c:\users\iyeba alpha kallon\appdata\local\packages\pythonsoftwarefoundation.python.3.13_qbz5n2kfra8p0\localcache\local-packages\python313\site-packages (from customtkinter) (26.0)
+Downloading customtkinter-5.2.2-py3-none-any.whl (296 kB)
+Downloading darkdetect-0.8.0-py3-none-any.whl (9.0 kB)
+Installing collected packages: darkdetect, customtkinter
+
+Successfully installed customtkinter-5.2.2 darkdetect-0.8.0
