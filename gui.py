@@ -17,23 +17,56 @@ import data_generator
 from utils import logic_gate_data, accuracy, mse
 
 class NeuralNetSimulatorGUI:
+    """
+    The main Graphical User Interface for the Neural Network Simulator.
+    Manages the layout, user interactions, and the main training event loop.
+    """
     def __init__(self, root):
+        """
+        Initialize the GUI and set up the main application state.
+
+        Args:
+            root (customtkinter.CTk): The root window object.
+        """
         self.root = root
         self.root.title("Advanced Neural Network Learning Simulator")
         self.root.geometry("1600x900")
         
-        # Style
+        # Configure Look and Feel
         ctk.set_appearance_mode("dark")
         ctk.set_default_color_theme("blue")
         
-        # --- Main Layout ---
+        # --- Main Layout Architecture ---
+        self._initialize_layout()
         self.create_menu()
+        self._setup_panels()
         
-        self.root.grid_columnconfigure(0, weight=1)
-        self.root.grid_columnconfigure(1, weight=4)
-        self.root.grid_columnconfigure(2, weight=1)
+        # --- Application Control State ---
+        self.is_playing = False
+        self.current_epoch = 0
+        self.algorithm = None
+        self.X = None
+        self.y = None
+        self.history = {'loss': [], 'accuracy': []}
+        
+        # --- Visualization Engines ---
+        # Note: Axes are created in setup_center_panel
+        self.vis = Visualizer(self.ax_boundary)
+        self.net_drawer = NetworkDrawer(self.ax_network)
+        
+        # --- Event Bindings ---
+        # Connect plot interactions (for Manual Dataset mode)
+        self.canvas_boundary.mpl_connect('button_press_event', self.on_click)
+
+    def _initialize_layout(self):
+        """Configure the grid weights for the main window resize behavior."""
+        self.root.grid_columnconfigure(0, weight=1) # Left Sidebar
+        self.root.grid_columnconfigure(1, weight=4) # Center Plot Area
+        self.root.grid_columnconfigure(2, weight=1) # Right Event Log
         self.root.grid_rowconfigure(0, weight=1)
-        
+
+    def _setup_panels(self):
+        """Instantiate the main containers for each UI section."""
         self.left_panel = ctk.CTkScrollableFrame(self.root, width=300, corner_radius=10)
         self.left_panel.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
         
@@ -43,84 +76,79 @@ class NeuralNetSimulatorGUI:
         self.right_panel = ctk.CTkFrame(self.root, width=300, corner_radius=10)
         self.right_panel.grid(row=0, column=2, padx=10, pady=10, sticky="nsew")
         
+        # Initialize sub-component widgets
         self.setup_left_panel()
         self.setup_center_panel()
         self.setup_right_panel()
-        
-        # Controller State
-        self.is_playing = False
-        self.current_epoch = 0
-        self.algorithm = None
-        self.X = None
-        self.y = None
-        self.history = {'loss': [], 'accuracy': []}
-        
-        # Visualizers (Init with placeholder axes, will be set in setup_center_panel)
-        # We need to initialize them AFTER setup_center_panel creates the axes
-        self.vis = Visualizer(self.ax_boundary)
-        self.net_drawer = NetworkDrawer(self.ax_network)
-        
-        # Connect click event
-        self.canvas_boundary.mpl_connect('button_press_event', self.on_click)
 
     def on_click(self, event):
-        if event.inaxes != self.ax_boundary:
-            return
-        if self.dataset_var.get() != "Manual":
+        """
+        Handle mouse click events on the decision boundary plot.
+        Used to manually add data points when "Manual" mode is selected.
+        
+        Args:
+            event (matplotlib.backend_bases.MouseEvent): The click event.
+        """
+        if event.inaxes != self.ax_boundary or self.dataset_var.get() != "Manual":
             return
             
-        # Left click: Class 0, Right click: Class 1
-        # Matplotlib event.button: 1=Left, 3=Right
+        # Left click (1) -> Class 0, Right click (3) -> Class 1
         label = 0 if event.button == 1 else 1
         
-        # Coordinates
         x, y = event.xdata, event.ydata
-        if x is None or y is None: return
+        if x is None or y is None: 
+            return
         
+        # Append to dataset
         new_point = np.array([[x, y]])
         new_label = np.array([label])
         
         if self.X is None:
-            self.X = new_point
-            self.y = new_label
+            self.X, self.y = new_point, new_label
         else:
             self.X = np.vstack([self.X, new_point])
             self.y = np.hstack([self.y, new_label])
             
-        self.log_message(f"Added point ({x:.2f}, {y:.2f}) -> Class {label}")
-        
-        # Re-plot
+        self.log_message(f"Point added: ({x:.2f}, {y:.2f}) -> Class {label}")
+        self._repaint_manual_data()
+
+    def _repaint_manual_data(self):
+        """Redraw the manually entered data points on the plot."""
         self.ax_boundary.clear()
         markers = ('o', 's')
-        colors = ('#ff3333', '#33adff') # Dark theme friendly colors
+        colors = ('#ff3333', '#33adff')
         
-        # Helper to plot raw data
         for idx, cl in enumerate(np.unique(self.y)):
-            # Ensure safe indexing into colors/markers
             c_idx = int(cl) % len(colors)
             m_idx = int(cl) % len(markers)
             
-            self.ax_boundary.scatter(x=self.X[self.y == cl, 0], 
-                            y=self.X[self.y == cl, 1],
-                            alpha=0.9, 
-                            c=colors[c_idx],
-                            marker=markers[m_idx], 
-                            label=f'Class {cl}', 
-                            edgecolor='white',
-                            s=60)
+            mask = (self.y == cl)
+            self.ax_boundary.scatter(x=self.X[mask, 0], 
+                                     y=self.X[mask, 1],
+                                     alpha=0.9, 
+                                     c=colors[c_idx],
+                                     marker=markers[m_idx], 
+                                     label=f'Class {cl}', 
+                                     edgecolor='white',
+                                     s=60)
         
-        self.ax_boundary.set_xlim(min(self.X[:,0])-1, max(self.X[:,0])+1)
-        self.ax_boundary.set_ylim(min(self.X[:,1])-1, max(self.X[:,1])+1)
+        # Set viewport padding around points
+        margin = 1.0
+        self.ax_boundary.set_xlim(min(self.X[:,0]) - margin, max(self.X[:,0]) + margin)
+        self.ax_boundary.set_ylim(min(self.X[:,1]) - margin, max(self.X[:,1]) + margin)
         self.ax_boundary.tick_params(colors='white')
         
-        legend = self.ax_boundary.legend(loc='upper left', frameon=True)
+        self._style_plot_legend(self.ax_boundary)
+        self.canvas_boundary.draw()
+
+    def _style_plot_legend(self, ax):
+        """Apply a professional dark theme to the plot legend."""
+        legend = ax.legend(loc='upper left', frameon=True)
         frame = legend.get_frame()
         frame.set_facecolor('#2b2b2b')
         frame.set_edgecolor('#555555')
         for text in legend.get_texts():
             text.set_color("white")
-            
-        self.canvas_boundary.draw()
         
     def create_menu(self):
         menubar = tk.Menu(self.root)
@@ -135,18 +163,15 @@ class NeuralNetSimulatorGUI:
         self.root.config(menu=menubar)
 
     def setup_left_panel(self):
-        # -- Algorithm Selection --
-        algo_label = ctk.CTkLabel(self.left_panel, text="Algorithm Selection", font=ctk.CTkFont(size=16, weight="bold"))
-        algo_label.pack(fill=tk.X, padx=5, pady=(5, 10))
-        
+        """Construct the sidebar for model selection and parameter configuration."""
+        # 1. Algorithm Selection
+        self._add_section_header(self.left_panel, "Algorithm Selection")
         self.algo_var = ctk.StringVar(value="Perceptron")
-        ctk.CTkRadioButton(self.left_panel, text="Perceptron", variable=self.algo_var, value="Perceptron").pack(anchor=tk.W, pady=2)
-        ctk.CTkRadioButton(self.left_panel, text="Adaline", variable=self.algo_var, value="Adaline").pack(anchor=tk.W, pady=2)
-        ctk.CTkRadioButton(self.left_panel, text="MLP", variable=self.algo_var, value="MLP").pack(anchor=tk.W, pady=(2, 10))
+        for algo in ["Perceptron", "Adaline", "MLP"]:
+            ctk.CTkRadioButton(self.left_panel, text=algo, variable=self.algo_var, value=algo).pack(anchor=tk.W, pady=2)
         
-        # -- Hyperparameters --
-        hp_label = ctk.CTkLabel(self.left_panel, text="Hyperparameters", font=ctk.CTkFont(size=16, weight="bold"))
-        hp_label.pack(fill=tk.X, padx=5, pady=(15, 10))
+        # 2. Universal Hyperparameters
+        self._add_section_header(self.left_panel, "Hyperparameters", pady=(15, 10))
         
         ctk.CTkLabel(self.left_panel, text="Learning Rate (η):").pack(anchor=tk.W)
         self.lr_scale = ctk.CTkSlider(self.left_panel, from_=0.0001, to=1.0, number_of_steps=1000)
@@ -158,9 +183,8 @@ class NeuralNetSimulatorGUI:
         self.epochs_entry.insert(0, "50")
         self.epochs_entry.pack(fill=tk.X, pady=(0, 10))
         
-        # -- MLP Specific --
-        mlp_label = ctk.CTkLabel(self.left_panel, text="MLP Config", font=ctk.CTkFont(size=16, weight="bold"))
-        mlp_label.pack(fill=tk.X, padx=5, pady=(15, 10))
+        # 3. MLP-Specific Configuration
+        self._add_section_header(self.left_panel, "MLP Config", pady=(15, 10))
         
         ctk.CTkLabel(self.left_panel, text="Hidden Layers (e.g., 4):").pack(anchor=tk.W)
         self.hidden_layers_entry = ctk.CTkEntry(self.left_panel)
@@ -172,10 +196,8 @@ class NeuralNetSimulatorGUI:
         activations = ["Sigmoid", "Tanh", "ReLU", "Hardlim", "Hardlims"]
         ctk.CTkOptionMenu(self.left_panel, variable=self.activation_var, values=activations).pack(fill=tk.X, pady=(0, 10))
 
-        # -- Dataset --
-        data_label = ctk.CTkLabel(self.left_panel, text="Dataset", font=ctk.CTkFont(size=16, weight="bold"))
-        data_label.pack(fill=tk.X, padx=5, pady=(15, 10))
-        
+        # 4. Dataset Selection
+        self._add_section_header(self.left_panel, "Dataset", pady=(15, 10))
         self.dataset_var = ctk.StringVar(value="Linear")
         datasets = ["Linear", "AND", "OR", "XOR", "Circles", "Moons", "Spiral", "Manual", "Custom (CSV/TXT)"]
         ctk.CTkOptionMenu(self.left_panel, variable=self.dataset_var, values=datasets).pack(fill=tk.X, pady=(0, 10))
@@ -183,60 +205,69 @@ class NeuralNetSimulatorGUI:
         ctk.CTkButton(self.left_panel, text="Generate/Load Data", command=self.generate_data).pack(fill=tk.X, pady=10)
         ctk.CTkLabel(self.left_panel, text="(Manual: L-Click=0, R-Click=1)", font=("Arial", 10)).pack(anchor=tk.W)
 
+    def _add_section_header(self, parent, text, pady=(5, 10)):
+        """Utility to add a bold section header to a panel."""
+        header = ctk.CTkLabel(parent, text=text, font=ctk.CTkFont(size=16, weight="bold"))
+        header.pack(fill=tk.X, padx=5, pady=pady)
+
 
     def setup_center_panel(self):
-        # Tabs for Decision Boundary, Network, Loss
+        """Set up the primary visualization area with tabs and playback controls."""
         self.notebook = ctk.CTkTabview(self.center_panel)
         self.notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         
-        # Tab 1: Decision Boundary
+        # --- Tab 1: Decision Boundary ---
         self.tab_boundary = self.notebook.add("Decision Boundary")
-        
-        # Set dark style for matplotlib
-        plt.style.use('dark_background')
-        
         self.fig_boundary = plt.Figure(figsize=(5, 4), dpi=100)
-        self.fig_boundary.patch.set_facecolor('#2b2b2b')
         self.ax_boundary = self.fig_boundary.add_subplot(111)
-        self.ax_boundary.set_facecolor('#2b2b2b')
+        self._set_matplotlib_bg(self.fig_boundary, self.ax_boundary)
         self.canvas_boundary = FigureCanvasTkAgg(self.fig_boundary, self.tab_boundary)
         self.canvas_boundary.get_tk_widget().pack(fill=tk.BOTH, expand=True)
         
-        # Tab 2: Network Architecture
+        # --- Tab 2: Network Architecture ---
         self.tab_network = self.notebook.add("Network Architecture")
-        
         self.fig_network = plt.Figure(figsize=(5, 4), dpi=100)
-        self.fig_network.patch.set_facecolor('#2b2b2b')
         self.ax_network = self.fig_network.add_subplot(111)
-        self.ax_network.set_facecolor('#2b2b2b')
+        self._set_matplotlib_bg(self.fig_network, self.ax_network)
         self.canvas_network = FigureCanvasTkAgg(self.fig_network, self.tab_network)
         self.canvas_network.get_tk_widget().pack(fill=tk.BOTH, expand=True)
         
-        # Tab 3: History
+        # --- Tab 3: Training Metrics ---
         self.tab_loss = self.notebook.add("Metrics")
-        
         self.fig_loss = plt.Figure(figsize=(5, 4), dpi=100)
-        self.fig_loss.patch.set_facecolor('#2b2b2b')
         self.ax_loss = self.fig_loss.add_subplot(111)
-        self.ax_loss.set_facecolor('#2b2b2b')
+        self._set_matplotlib_bg(self.fig_loss, self.ax_loss)
         self.canvas_loss = FigureCanvasTkAgg(self.fig_loss, self.tab_loss)
         self.canvas_loss.get_tk_widget().pack(fill=tk.BOTH, expand=True)
         
-        # Playback Controls
-        controls_frame = ctk.CTkFrame(self.center_panel, fg_color="transparent")
-        controls_frame.pack(fill=tk.X, padx=10, pady=10)
+        # --- Playback Control Bar ---
+        self._setup_playback_controls()
+
+    def _set_matplotlib_bg(self, fig, ax):
+        """Set a consistent dark background for a Matplotlib figure/axes."""
+        plt.style.use('dark_background')
+        fig.patch.set_facecolor('#2b2b2b')
+        ax.set_facecolor('#2b2b2b')
+
+    def _setup_playback_controls(self):
+        """Add training and reset buttons to the center panel."""
+        frame = ctk.CTkFrame(self.center_panel, fg_color="transparent")
+        frame.pack(fill=tk.X, padx=10, pady=10)
         
-        self.btn_start = ctk.CTkButton(controls_frame, text="Start Training", command=self.start_training, fg_color="#2ecc71", hover_color="#27ae60", text_color="white")
+        self.btn_start = ctk.CTkButton(frame, text="Start Training", command=self.start_training, 
+                                       fg_color="#2ecc71", hover_color="#27ae60", text_color="white")
         self.btn_start.pack(side=tk.LEFT, padx=10)
         
-        self.btn_stop = ctk.CTkButton(controls_frame, text="Stop", command=self.stop_training, state=tk.DISABLED, fg_color="#e74c3c", hover_color="#c0392b", text_color="white")
+        self.btn_stop = ctk.CTkButton(frame, text="Stop", command=self.stop_training, 
+                                      state=tk.DISABLED, fg_color="#e74c3c", hover_color="#c0392b", text_color="white")
         self.btn_stop.pack(side=tk.LEFT, padx=10)
         
-        ctk.CTkButton(controls_frame, text="Reset", command=self.reset_simulation, fg_color="#f39c12", hover_color="#d68910", text_color="white").pack(side=tk.LEFT, padx=10)
+        ctk.CTkButton(frame, text="Reset", command=self.reset_simulation, 
+                      fg_color="#f39c12", hover_color="#d68910", text_color="white").pack(side=tk.LEFT, padx=10)
 
     def setup_right_panel(self):
-        stats_label = ctk.CTkLabel(self.right_panel, text="Training Stats", font=ctk.CTkFont(size=16, weight="bold"))
-        stats_label.pack(fill=tk.X, padx=10, pady=(10, 5))
+        """Create the dashboard for training statistics and system logs."""
+        self._add_section_header(self.right_panel, "Training Stats", pady=(10, 5))
         
         self.epoch_label = ctk.CTkLabel(self.right_panel, text="Epoch: 0", font=ctk.CTkFont(size=14))
         self.epoch_label.pack(anchor=tk.W, padx=10, pady=2)
@@ -247,148 +278,161 @@ class NeuralNetSimulatorGUI:
         self.acc_label = ctk.CTkLabel(self.right_panel, text="Accuracy: N/A", font=ctk.CTkFont(size=14))
         self.acc_label.pack(anchor=tk.W, padx=10, pady=2)
         
-        log_label = ctk.CTkLabel(self.right_panel, text="Event Log", font=ctk.CTkFont(size=16, weight="bold"))
-        log_label.pack(fill=tk.X, padx=10, pady=(20, 5))
-        
+        self._add_section_header(self.right_panel, "Event Log", pady=(20, 5))
         self.log_text = ctk.CTkTextbox(self.right_panel, height=200, state='disabled', corner_radius=10)
         self.log_text.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 10))
 
     def log_message(self, msg):
+        """Thread-safe logging of messages to the application's event log."""
         self.log_text.configure(state='normal')
-        self.log_text.insert(tk.END, msg + "\n")
+        self.log_text.insert(tk.END, f"{msg}\n")
         self.log_text.see(tk.END)
         self.log_text.configure(state='disabled')
 
     def show_about(self):
         messagebox.showinfo("About", "Neural Network Learning Simulator v1.0")
-        
-    def generate_data(self):
+            def generate_data(self):
+        """Generate or load the dataset based on current user selection."""
         selection = self.dataset_var.get()
-        self.log_message(f"Generating {selection} dataset...")
+        self.log_message(f"Loading/Generating: {selection}")
         
+        # Reset state
+        self.X, self.y = None, None
+
         if selection == "Manual":
-             self.log_message("Manual mode: Click on plot to add points.")
-             self.X = None
-             self.y = None
-             self.ax_boundary.clear()
-             self.canvas_boundary.draw()
+             self._handle_manual_mode_init()
              return
 
         if selection == "Custom (CSV/TXT)":
-             self.log_message("Opening file dialog for custom dataset...")
-             filepath = ctk.filedialog.askopenfilename(
-                 title="Select Dataset",
-                 filetypes=[("Text/CSV files", "*.csv *.txt"), ("All files", "*.*")]
-             )
-             if not filepath:
-                 self.log_message("File selection cancelled.")
+             if not self._handle_custom_file_load():
                  return
-             
-             try:
-                 # Load data assuming comma or space separated
-                 # Assume last column is 'y' and rest are 'X'
-                 data = np.loadtxt(filepath, delimiter=',' if filepath.endswith('.csv') else None)
-                 if data.ndim != 2 or data.shape[1] < 2:
-                     raise ValueError("Data must have at least 2 columns (Features and Labels)")
-                 
-                 self.X = data[:, :-1]
-                 self.y = data[:, -1]
-                 
-                 # Verify binary or integer labels for simplicity
-                 unique_classes = np.unique(self.y)
-                 if len(unique_classes) > 2:
-                     self.log_message("Warning: Dataset has more than 2 classes. Visualizer optimized for binary classification.")
-                     
-                 self.log_message(f"Successfully loaded {filepath}. Shape: {self.X.shape}")
-             except Exception as e:
-                 import traceback
-                 self.log_message(f"Error loading file: {e}")
-                 messagebox.showerror("Error Loading Data", f"Ensure file is numeric and comma/space separated.\n{e}")
-                 return
-        elif selection == "Linear":
-            self.X, self.y = data_generator.generate_linear_data()
-        elif selection == "Circles":
-            self.X, self.y = data_generator.generate_circles_data()
-        elif selection == "Moons":
-            self.X, self.y = data_generator.generate_moons_data()
-        elif selection == "Spiral":
-            self.X, self.y = data_generator.generate_spiral_data()
-        elif selection == "AND":
-             self.X, self.y = logic_gate_data("AND")
-        elif selection == "OR":
-             self.X, self.y = logic_gate_data("OR")
-        elif selection == "XOR":
-             self.X, self.y = logic_gate_data("XOR")
+        else:
+            # Generate synthetic datasets using the generator module
+            self._generate_synthetic_data(selection)
         
-        # Plot initial data
+        if self.X is not None:
+            self._render_initial_plot()
+            self.log_message(f"Dataset ready. Samples: {len(self.y)}")
+
+    def _handle_manual_mode_init(self):
+        """Initialize the manual drawing mode."""
+        self.log_message("Manual mode: Click the plot to add data points.")
         self.ax_boundary.clear()
-        
-        # Helper to plot raw data before classifier is ready
-        markers = ('o', 's')
-        colors = ('#ff3333', '#33adff') # Vibrant colors for dark bg
-        # Handle binary classification for now
-        unique_y = np.unique(self.y)
-        for idx, cl in enumerate(unique_y):
-            self.ax_boundary.scatter(x=self.X[self.y == cl, 0], 
-                            y=self.X[self.y == cl, 1],
-                            alpha=0.9, 
-                            c=colors[idx % len(colors)],
-                            marker=markers[idx % len(markers)], 
-                            label=f'Class {cl}', 
-                            edgecolor='white',
-                            s=60)
-                            
         self.ax_boundary.tick_params(colors='white')
-        
-        legend = self.ax_boundary.legend(loc='upper left', frameon=True)
-        frame = legend.get_frame()
-        frame.set_facecolor('#2b2b2b')
-        frame.set_edgecolor('#555555')
-        for text in legend.get_texts():
-            text.set_color("white")
-            
         self.canvas_boundary.draw()
+
+    def _handle_custom_file_load(self):
+        """Open a file dialog to parse a custom CSV or text dataset."""
+        self.log_message("Requesting file path...")
+        filepath = ctk.filedialog.askopenfilename(
+            title="Select Dataset",
+            filetypes=[("Text/CSV files", "*.csv *.txt"), ("All files", "*.*")]
+        )
+        if not filepath:
+            self.log_message("Operation cancelled by user.")
+            return False
         
-        self.log_message(f"Data generated. Samples: {len(self.y)}")
+        try:
+            # Load numeric data (comma or space separated)
+            data = np.loadtxt(filepath, delimiter=',' if filepath.endswith('.csv') else None)
+            if data.ndim != 2 or data.shape[1] < 2:
+                raise ValueError("Data format invalid. Requirements: At least 2 columns [1+ Features, 1 Label].")
+            
+            # Assume last column is target label, others are features
+            self.X, self.y = data[:, :-1], data[:, -1]
+            self.log_message(f"File loaded: {filepath}")
+            return True
+        except Exception as e:
+            self.log_message(f"Error: {e}")
+            messagebox.showerror("IO Error", f"Could not load dataset:\n{e}")
+            return False
+
+    def _generate_synthetic_data(self, selection):
+        """Map dataset names to generator functions."""
+        generators = {
+            "Linear": data_generator.generate_linear_data,
+            "Circles": data_generator.generate_circles_data,
+            "Moons": data_generator.generate_moons_data,
+            "Spiral": data_generator.generate_spiral_data,
+            "AND": lambda: logic_gate_data("AND"),
+            "OR": lambda: logic_gate_data("OR"),
+            "XOR": lambda: logic_gate_data("XOR")
+        }
+        if selection in generators:
+            self.X, self.y = generators[selection]()
+
+    def _render_initial_plot(self):
+        """Helper to draw the raw data points before training begins."""
+        self.ax_boundary.clear()
+        markers = ('o', 's')
+        colors = ('#ff3333', '#33adff')
+        
+        for idx, label in enumerate(np.unique(self.y)):
+            mask = (self.y == label)
+            self.ax_boundary.scatter(x=self.X[mask, 0], 
+                                     y=self.X[mask, 1],
+                                     alpha=0.9, 
+                                     c=colors[idx % len(colors)],
+                                     marker=markers[idx % len(markers)], 
+                                     label=f'Class {label}', 
+                                     edgecolor='white',
+                                     s=60)
+        self.ax_boundary.tick_params(colors='white')
+        self._style_plot_legend(self.ax_boundary)
+        self.canvas_boundary.draw()
 
     def init_algorithm(self):
+        """
+        Instantiate the selected machine learning model with user-provided parameters.
+
+        Returns:
+            bool: True if initialization was successful, False otherwise.
+        """
         algo_name = self.algo_var.get()
         lr = self.lr_scale.get()
-        try:
-             epochs = int(self.epochs_entry.get())
-        except ValueError:
-             messagebox.showerror("Error", "Invalid Epochs.")
-             return False
         
+        try:
+            epochs = int(self.epochs_entry.get())
+        except ValueError:
+            messagebox.showerror("Validation Error", "Epochs must be an integer sequence.")
+            return False
+        
+        # Dispatch model creation
         if algo_name == "Perceptron":
             self.algorithm = Perceptron(eta=lr, n_iter=epochs)
         elif algo_name == "Adaline":
             self.algorithm = AdalineGD(eta=lr, n_iter=epochs)
         elif algo_name == "MLP":
-            hidden_str = self.hidden_layers_entry.get()
-            try:
-                # Parse hidden layers "4,4" -> [2, 4, 4, 1]
-                hidden = [int(x) for x in hidden_str.split(',') if x.strip()]
-            except ValueError:
-                messagebox.showerror("Error", "Invalid Hidden Layers format. Use comma separated numbers like '4,4'")
+            if not self._init_mlp(lr, epochs):
                 return False
                 
-            input_dim = self.X.shape[1]
-            output_dim = 1 # Binary classification
-            layers = [input_dim] + hidden + [output_dim]
+        return True
+
+    def _init_mlp(self, lr, epochs):
+        """Parse hidden layer configuration and initialize the MLP."""
+        hidden_str = self.hidden_layers_entry.get()
+        try:
+            # Parse CSV string (e.g., "4, 4") into integer list
+            hidden = [int(x.strip()) for x in hidden_str.split(',') if x.strip()]
+        except ValueError:
+            messagebox.showerror("Config Error", "Hidden Layers must be comma-separated integers (e.g. '4,4').")
+            return False
             
-            activation = self.activation_var.get().lower()
-            self.algorithm = MLP(layers=layers, activation=activation, eta=lr, epochs=epochs)
-            
-            # Draw initial network
-            self.net_drawer.draw(layers, self.algorithm.weights)
-            self.canvas_network.draw()
-            
+        # Architecture: [Input] + [Hidden...] + [Output]
+        layer_config = [self.X.shape[1]] + hidden + [1]
+        activation = self.activation_var.get().lower()
+        
+        self.algorithm = MLP(layers=layer_config, activation=activation, eta=lr, epochs=epochs)
+        
+        # Render initial weight visualization
+        self.net_drawer.draw(layer_config, self.algorithm.weights)
+        self.canvas_network.draw()
         return True
 
     def start_training(self):
+        """Begin the asynchronous training process."""
         if self.X is None:
-            messagebox.showwarning("Warning", "Please generate data first!")
+            messagebox.showwarning("Incomplete Data", "Please load or generate a dataset first.")
             return
             
         if self.is_playing:
@@ -397,102 +441,116 @@ class NeuralNetSimulatorGUI:
         if not self.init_algorithm():
             return
             
+        # Update UI state
         self.is_playing = True
         self.btn_start.configure(state=tk.DISABLED)
         self.btn_stop.configure(state=tk.NORMAL)
         self.current_epoch = 0
         self.history = {'loss': [], 'accuracy': []}
         
-        self.log_message(f"Starting training with {self.algo_var.get()}...")
+        self.log_message(f"Initiating training session: {self.algo_var.get()}")
         self.train_loop()
         
     def stop_training(self):
+        """Halt the training loop."""
         self.is_playing = False
         self.btn_start.configure(state=tk.NORMAL)
         self.btn_stop.configure(state=tk.DISABLED)
-        self.log_message("Training stopped.")
+        self.log_message("Training interrupted.")
 
     def reset_simulation(self):
+        """Restore the simulation to its initial state."""
         self.stop_training()
         self.algorithm = None
         self.current_epoch = 0
         self.history = {'loss': [], 'accuracy': []}
+        
+        # Clear all visualizations
         self.ax_boundary.clear()
         self.ax_network.clear()
         self.ax_loss.clear()
         self.canvas_boundary.draw()
         self.canvas_network.draw()
         self.canvas_loss.draw()
-        self.log_message("Simulation Reset.")
+        
+        # Reset labels
         self.epoch_label.configure(text="Epoch: 0")
         self.loss_label.configure(text="Loss: N/A")
         self.acc_label.configure(text="Accuracy: N/A")
         
+        self.log_message("System reset complete.")
+        
+        # Restore data if not in manual mode
         if self.X is not None and self.dataset_var.get() != "Manual":
-             self.generate_data() # Re-plot data
+             self._render_initial_plot() 
         elif self.dataset_var.get() == "Manual":
-             self.X = None
-             self.y = None # Reset manual data
-
-    def train_loop(self):
+             self.X, self.y = None, None
+    def train_loop(self):
+        """
+        The main training event loop.
+        Executes one epoch, updates visualizations, and schedules the next step.
+        """
         if not self.is_playing:
             return
             
         max_epochs = int(self.epochs_entry.get())
         if self.current_epoch >= max_epochs:
             self.stop_training()
-            self.log_message("Max epochs reached.")
+            self.log_message("Convergence limit reached.")
             return
             
-        # Perform one "step" (epoch)
-        loss = 0
-        acc = 0
-        
-        # Different handling for MLP vs others
-        if isinstance(self.algorithm, MLP):
-            loss, _ = self.algorithm.train_step(self.X, self.y)
-            pred = self.algorithm.predict(self.X)
-            acc = accuracy(self.y.reshape(-1, 1), pred.reshape(-1, 1))
-            
-            # Update network drawer with new weights
-            self.ax_network.clear()
-            self.net_drawer.draw(self.algorithm.layers, self.algorithm.weights)
-            self.canvas_network.draw()
-            
-        elif isinstance(self.algorithm, AdalineGD):
-            loss, _ = self.algorithm.train_step(self.X, self.y)
-            pred = self.algorithm.predict(self.X)
-            acc = accuracy(self.y, pred)
-            
-        elif isinstance(self.algorithm, Perceptron):
-            # Perceptron train_step (Stochastic loop)
-            # We will run one full pass over data for "one epoch" visualization
-            errors = 0
-            # Shuffle for stochastic
-            r = np.random.permutation(len(self.y))
-            for i in r:
-                l, _ = self.algorithm.train_step(self.X[i], self.y[i])
-                errors += l
-            loss = errors # Perceptron uses misclassifications as "loss" proxy here
-            pred = self.algorithm.predict(self.X)
-            acc = accuracy(self.y, pred)
+        # --- Perform Training Step ---
+        loss, acc = self._execute_epoch_step()
 
         self.current_epoch += 1
         self.history['loss'].append(loss)
         self.history['accuracy'].append(acc)
         
-        # Update UI
+        # --- UI Dashboard Update ---
         self.epoch_label.configure(text=f"Epoch: {self.current_epoch}/{max_epochs}")
         self.loss_label.configure(text=f"Loss: {loss:.4f}")
         self.acc_label.configure(text=f"Accuracy: {acc*100:.1f}%")
         
-        # Update Plots (every 5 epochs to speed up animation if needed, or every 1)
-        # Using every epoch for smooth vis
+        # --- Visualization Updates ---
+        # 1. Decision Boundary
         self.vis.plot_decision_regions(self.X, self.y, self.algorithm)
         self.canvas_boundary.draw()
         
+        # 2. Performance Metrics
         self.vis.plot_metrics(self.ax_loss, self.history, metric='loss')
         self.canvas_loss.draw()
         
-        # Schedule next loop
-        self.root.after(50, self.train_loop) # 50ms delay
+        # Schedule next iteration via Tkinter's event loop
+        # We use a small delay for animation visibility
+        self.root.after(10, self.train_loop)
+
+    def _execute_epoch_step(self):
+        """Dispatch training step logic based on the active algorithm."""
+        loss, acc = 0, 0
+        
+        if isinstance(self.algorithm, MLP):
+            loss, _ = self.algorithm.train_step(self.X, self.y)
+            preds = self.algorithm.predict(self.X)
+            acc = accuracy(self.y.reshape(-1, 1), preds.reshape(-1, 1))
+            
+            # Sync Architecture Diagram with new weight strengths
+            self.net_drawer.draw(self.algorithm.layers, self.algorithm.weights)
+            self.canvas_network.draw()
+            
+        elif isinstance(self.algorithm, (AdalineGD, Perceptron)):
+             # Single epoch pass
+             if isinstance(self.algorithm, AdalineGD):
+                 loss, _ = self.algorithm.train_step(self.X, self.y)
+             else:
+                 # Perceptron Online Learning (Stochastic)
+                 total_errors = 0
+                 indices = np.random.permutation(len(self.y))
+                 for idx in indices:
+                     step_error, _ = self.algorithm.train_step(self.X[idx], self.y[idx])
+                     total_errors += step_error
+                 loss = total_errors
+             
+             preds = self.algorithm.predict(self.X)
+             acc = accuracy(self.y, preds)
+             
+        return loss, acc
